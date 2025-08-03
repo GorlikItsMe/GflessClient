@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node-gyp rebuild",
     "install": "node-gyp rebuild",
-    "test": "node test.js"
+    "test": "node test.js",
+    "build:static": "node-gyp rebuild --binding.gyp=binding.gyp.static"
   },
   "dependencies": {
     "node-addon-api": "^7.0.0"

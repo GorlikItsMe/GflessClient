@@ -25,7 +25,8 @@
       ],
       "defines": [ 
         "NAPI_DISABLE_CPP_EXCEPTIONS",
-        "QT_NO_DEBUG_OUTPUT"
+        "QT_NO_DEBUG_OUTPUT",
+        "QT_STATIC_BUILD"
       ],
       "conditions": [
         ["OS=='win'", {
@@ -47,7 +48,11 @@
           ],
           "msvs_settings": {
             "VCCLCompilerTool": {
-              "AdditionalOptions": ["/MT"]
+              "AdditionalOptions": ["/MT"],
+              "RuntimeLibrary": 0
+            },
+            "VCLinkerTool": {
+              "AdditionalOptions": ["/NODEFAULTLIB:MSVCRT"]
             }
           }
         }],
@@ -80,4 +85,4 @@
       ]
     }
   ]
-}
+} 
