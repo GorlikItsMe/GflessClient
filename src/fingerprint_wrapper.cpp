@@ -1,10 +1,27 @@
 #include "fingerprint_wrapper.h"
-#include "nostale_types.h"
+#include <QCoreApplication>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 Napi::FunctionReference FingerprintWrapper::constructor;
 
+// Ensure Qt Application is initialized
+static QCoreApplication* ensureQtApp() {
+    static QCoreApplication* app = nullptr;
+    if (!app) {
+        static int argc = 1;
+        static char appName[] = "nostale_auth";
+        static char* argv[] = { appName, nullptr };
+        app = new QCoreApplication(argc, argv);
+    }
+    return app;
+}
+
 Napi::Object FingerprintWrapper::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
+
+    // Initialize Qt Application
+    ensureQtApp();
 
     Napi::Function func = DefineClass(env, "Fingerprint", {
         InstanceMethod("getJson", &FingerprintWrapper::GetJson),
@@ -29,55 +46,58 @@ FingerprintWrapper::FingerprintWrapper(const Napi::CallbackInfo& info)
     Napi::HandleScope scope(env);
 
     if (info.Length() == 0) {
-        // Create new fingerprint
-        fingerprint_ = std::make_shared<FingerprintSimple>();
+        // Create new fingerprint with default parameters
+        fingerprint_ = std::make_unique<Fingerprint>();
     } else if (info.Length() >= 1) {
         // Create from existing data or with proxy config
         if (info[0].IsObject()) {
             // Parse existing fingerprint data
-            JsonObject fp;
+            QJsonObject fp;
             Napi::Object obj = info[0].As<Napi::Object>();
             Napi::Array props = obj.GetPropertyNames();
             
             for (uint32_t i = 0; i < props.Length(); i++) {
                 Napi::Value key = props[i];
                 if (key.IsString()) {
-                    std::string keyStr = key.As<Napi::String>().Utf8Value();
+                    QString keyStr = QString::fromStdString(key.As<Napi::String>().Utf8Value());
                     Napi::Value val = obj.Get(key);
                     if (val.IsString()) {
-                        fp.insert(keyStr, val.As<Napi::String>().Utf8Value());
+                        fp[keyStr] = QString::fromStdString(val.As<Napi::String>().Utf8Value());
+                    } else if (val.IsNumber()) {
+                        fp[keyStr] = val.As<Napi::Number>().DoubleValue();
+                    } else if (val.IsBoolean()) {
+                        fp[keyStr] = val.As<Napi::Boolean>().Value();
                     }
                 }
             }
             
             // Check for proxy config in second parameter
+            QString proxyIp, proxyPort, proxyUsername, proxyPassword;
+            bool useProxy = false;
+            
             if (info.Length() >= 2 && info[1].IsObject()) {
                 Napi::Object proxyConfig = info[1].As<Napi::Object>();
-                std::string ip, port, username, password;
-                bool useProxy = false;
                 
                 if (proxyConfig.Has("ip")) {
-                    ip = proxyConfig.Get("ip").As<Napi::String>().Utf8Value();
+                    proxyIp = QString::fromStdString(proxyConfig.Get("ip").As<Napi::String>().Utf8Value());
                 }
                 if (proxyConfig.Has("port")) {
-                    port = proxyConfig.Get("port").As<Napi::String>().Utf8Value();
+                    proxyPort = QString::fromStdString(proxyConfig.Get("port").As<Napi::String>().Utf8Value());
                 }
                 if (proxyConfig.Has("username")) {
-                    username = proxyConfig.Get("username").As<Napi::String>().Utf8Value();
+                    proxyUsername = QString::fromStdString(proxyConfig.Get("username").As<Napi::String>().Utf8Value());
                 }
                 if (proxyConfig.Has("password")) {
-                    password = proxyConfig.Get("password").As<Napi::String>().Utf8Value();
+                    proxyPassword = QString::fromStdString(proxyConfig.Get("password").As<Napi::String>().Utf8Value());
                 }
                 if (proxyConfig.Has("useProxy")) {
                     useProxy = proxyConfig.Get("useProxy").As<Napi::Boolean>().Value();
                 }
-                
-                fingerprint_ = std::make_shared<FingerprintSimple>(fp, ip, port, username, password, useProxy);
-            } else {
-                fingerprint_ = std::make_shared<FingerprintSimple>(fp);
             }
+            
+            fingerprint_ = std::make_unique<Fingerprint>(fp, proxyIp, proxyPort, proxyUsername, proxyPassword, useProxy);
         } else {
-            fingerprint_ = std::make_shared<FingerprintSimple>();
+            fingerprint_ = std::make_unique<Fingerprint>();
         }
     }
 }
@@ -85,11 +105,24 @@ FingerprintWrapper::FingerprintWrapper(const Napi::CallbackInfo& info)
 Napi::Value FingerprintWrapper::GetJson(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     
-    JsonObject fp = fingerprint_->json();
+    QJsonObject fp = fingerprint_->json();
     Napi::Object result = Napi::Object::New(env);
     
-    for (const auto& pair : fp.data) {
-        result.Set(pair.first, pair.second);
+    for (auto it = fp.begin(); it != fp.end(); ++it) {
+        QString key = it.key();
+        QJsonValue value = it.value();
+        
+        if (value.isString()) {
+            result.Set(key.toStdString(), value.toString().toStdString());
+        } else if (value.isDouble()) {
+            result.Set(key.toStdString(), value.toDouble());
+        } else if (value.isBool()) {
+            result.Set(key.toStdString(), value.toBool());
+        } else if (value.isArray() || value.isObject()) {
+            // Convert to JSON string for complex types
+            QJsonDocument doc(value.isArray() ? QJsonDocument(value.toArray()) : QJsonDocument(value.toObject()));
+            result.Set(key.toStdString(), doc.toJson(QJsonDocument::Compact).toStdString());
+        }
     }
     
     return result;
@@ -97,7 +130,7 @@ Napi::Value FingerprintWrapper::GetJson(const Napi::CallbackInfo& info) {
 
 Napi::Value FingerprintWrapper::ToString(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::String::New(env, fingerprint_->toString());
+    return Napi::String::New(env, fingerprint_->toString().toStdString());
 }
 
 Napi::Value FingerprintWrapper::UpdateVector(const Napi::CallbackInfo& info) {
@@ -124,8 +157,9 @@ Napi::Value FingerprintWrapper::SetRequest(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     
     if (info.Length() >= 1 && info[0].IsString()) {
-        std::string request = info[0].As<Napi::String>().Utf8Value();
-        fingerprint_->setRequest(request);
+        QString request = QString::fromStdString(info[0].As<Napi::String>().Utf8Value());
+        QJsonDocument doc = QJsonDocument::fromJson(request.toUtf8());
+        fingerprint_->setRequest(doc.object());
     }
     
     return env.Undefined();

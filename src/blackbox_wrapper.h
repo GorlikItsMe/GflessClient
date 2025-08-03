@@ -2,9 +2,12 @@
 #define BLACKBOX_WRAPPER_H
 
 #include <napi.h>
-#include "blackbox_simple.h"
+#include "blackbox.h" // Original Qt-based class
+#include "identity.h" 
 #include "fingerprint_wrapper.h"
 #include <memory>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 class BlackBoxWrapper : public Napi::ObjectWrap<BlackBoxWrapper> {
 public:
@@ -21,7 +24,8 @@ private:
     static Napi::Value Decode(const Napi::CallbackInfo& info);
     static Napi::Value EncodeStatic(const Napi::CallbackInfo& info);
     
-    std::shared_ptr<BlackBoxSimple> blackbox_;
+    std::unique_ptr<BlackBox> blackbox_;
+    std::shared_ptr<Identity> identity_;
 };
 
 #endif // BLACKBOX_WRAPPER_H
