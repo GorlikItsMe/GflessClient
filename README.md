@@ -1,49 +1,151 @@
-# GflessClient
+# NosTale Authentication Node.js Bindings
 
-This application simulates almost everything that the Gameforge client does allowing you to have multiple gameforge accounts in the same launcher and open several game clients with just one click.
-
-# Discord
-
-To get help and check out more in depths tutorials you can join the discord server.
-
-[<img src="https://discord.com/api/guilds/1339601581049647136/widget.png?style=banner2">](https://discord.gg/AVs6g3myx3)
+This project provides Node.js bindings for the NosTale authentication functionality, focusing on the `Launcher/src/auth/*` files from the original C++/Qt codebase.
 
 ## Features
 
-* You can have multiple gameforge accounts in the same launcher.
-* You can log in with your gameforge accounts through a proxy server.
-* You can use custom game clients for each gameforge account in case you want to proxy the game aswell.
-* You can use a different identity and installation id for each gameforge account.
-* The software can check for game updates at startup
-* You can disable the nosmall popup at first daily login.
-* You can create new game accounts.
-* Allows you to create profiles with game accounts that belong to different gameforge accounts and set a custom name for each account.
-* You can selet and open multiple game accounts in one click.
-* The process of selecting the server, channel and the character is fully automated.
-* Allows you to quickly open the game settings by clicking in the wheel button.
-* Allows you to change the game language.
+- **Fingerprint Generation**: Create and manage browser-like fingerprints for authentication
+- **BlackBox Encoding/Decoding**: Encode and decode authentication data using the BlackBox algorithm  
+- **Identity Management**: Persist and load fingerprints from files
+- **Network Integration**: Fetch server time and handle proxy configurations
+- **Encryption Support**: EncryptedBlackBox for secure authentication data
 
-## Instructions
+## Installation
 
-1. Download the latest release version
-2. Extract the folder and open GflessClient.exe
-3. Generate your identity file (See instructions below)
-4. Go to Options > Settings and select your identity file.
-5. Go to Options > Settings and select your NostaleClientX.exe
-6. Add a gameforge account
-7. Select the accounts you want to open and click on Play
+```bash
+npm install
+```
 
-## How to generate identity file
+## Quick Start
 
-You'll need to extract a valid blackbox from the request to auth/iovation following this steps:
+```javascript
+const { Fingerprint, BlackBox, Identity } = require('./index');
 
-1. Open [Fiddler](https://www.telerik.com/download/fiddler-b) and the Gameforge Client.
-2. Enable HTTPS traffic decryption / Tools > Options > HTTPS > Decrypt HTTPS traffic.
-3. Connect your game account and copy the blackbox from the request to auth/iovation (the blackbox look something like "tra:JVqc0...")
-4. In the Gfless Client go to Options > Identity generator, paste the blackbox and click on the button that says "Generate and save".
-5. Save the generated identity to a file.
+// Create a new fingerprint
+const fingerprint = new Fingerprint();
+console.log('Fingerprint created:', fingerprint.json());
 
-## Credits
+// Create an identity with file persistence
+const identity = new Identity('./my_identity.json');
+await identity.update();
 
-Big thanks and full credits to [morsisko](https://github.com/morsisko) and [stdLemon](https://github.com/stdLemon) for all the reverse engineering needed to make this project possible.<br>
-Repositories used for this project: [Nostale-Auth](https://github.com/morsisko/NosTale-Auth), [Nostale-Gfless](https://github.com/morsisko/NosTale-Gfless) and [nostale-auth](https://github.com/stdLemon/nostale-auth)
+// Create and encode a BlackBox
+const blackBox = new BlackBox(identity, { features: [12345] });
+const encoded = blackBox.encoded();
+console.log('Encoded BlackBox:', encoded);
+
+// Decode the BlackBox
+const decoded = BlackBox.decode(encoded);
+console.log('Decoded data:', decoded);
+```
+
+## Running Tests
+
+```bash
+npm test
+```
+
+This will run a comprehensive test suite that demonstrates:
+- Fingerprint creation and updates
+- Identity file persistence 
+- BlackBox encoding/decoding
+- EncryptedBlackBox functionality
+
+## API Reference
+
+### Fingerprint
+
+The main fingerprint class that generates browser-like authentication data.
+
+```javascript
+const fingerprint = new Fingerprint(existingData, proxyConfig);
+
+// Update various fingerprint components
+fingerprint.updateVector();
+fingerprint.updateCreation();
+fingerprint.updateTimings();
+await fingerprint.updateServerTime();
+
+// Get fingerprint data
+const data = fingerprint.json();
+const jsonString = fingerprint.toString();
+```
+
+### Identity
+
+Manages fingerprints with file persistence.
+
+```javascript
+const identity = new Identity('./identity.json', proxyConfig);
+
+// Update all fingerprint components
+await identity.update();
+
+// Save to file
+identity.save();
+
+// Set request data
+identity.setRequest({ features: [12345] });
+```
+
+### BlackBox
+
+Handles encoding and decoding of fingerprint data.
+
+```javascript
+const blackBox = new BlackBox(identity, requestData);
+const encoded = blackBox.encoded();
+
+// Static methods for encoding/decoding
+const decoded = BlackBox.decode(encodedData);
+const encoded = BlackBox.encodeStatic(jsonString);
+```
+
+### EncryptedBlackBox
+
+Provides encrypted BlackBox functionality.
+
+```javascript
+const encryptedBox = new EncryptedBlackBox(
+    identity,
+    'account-id',
+    'gsid-12345',
+    'installation-id'
+);
+
+const encrypted = encryptedBox.encrypted();
+```
+
+## Key Differences from Original C++ Code
+
+- **Async/Await**: Network operations use modern JavaScript async/await patterns
+- **No Qt Dependencies**: Pure Node.js implementation without Qt framework
+- **JSON Handling**: Uses native JavaScript JSON instead of QJsonDocument
+- **File I/O**: Uses Node.js fs module instead of QFile
+- **Networking**: Uses axios instead of QNetworkAccessManager
+- **Error Handling**: JavaScript-style error handling with try/catch
+
+## File Structure
+
+```
+├── lib/
+│   ├── Fingerprint.js    # Main fingerprint functionality
+│   ├── BlackBox.js       # Encoding/decoding logic
+│   └── Identity.js       # Identity management with persistence
+├── index.js              # Main entry point
+├── test.js               # Comprehensive test suite
+├── package.json          # Node.js dependencies
+└── README.md            # This file
+```
+
+## Original C++ Files Ported
+
+This implementation is based on the following original files:
+- `Launcher/src/auth/fingerprint.h/cpp`
+- `Launcher/src/auth/blackbox.h/cpp` 
+- `Launcher/src/auth/identity.h/cpp`
+- `Launcher/src/syncnetworkaccessmanager.h/cpp`
+
+## License
+
+Same as the original project.
