@@ -1,11 +1,6 @@
-// Main entry point for NosTale Auth Bindings
-const Fingerprint = require('./lib/Fingerprint');
-const { BlackBox, EncryptedBlackBox } = require('./lib/BlackBox');
-const Identity = require('./lib/Identity');
+const binding = require('./build/Release/nostale_auth');
 
 module.exports = {
-    Fingerprint,
-    BlackBox,
-    EncryptedBlackBox,
-    Identity
+    Fingerprint: binding.Fingerprint,
+    BlackBox: binding.BlackBox
 };

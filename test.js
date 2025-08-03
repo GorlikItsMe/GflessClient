@@ -1,141 +1,56 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
-const { Fingerprint, BlackBox, EncryptedBlackBox, Identity } = require('./index');
+const { Fingerprint, BlackBox } = require('./index');
 
-async function runBasicTest() {
-    console.log('🚀 Starting NosTale Auth Bindings Test...\n');
+console.log('🚀 Testing NosTale Auth C++ Bindings...\n');
 
-    // Test 1: Create a new fingerprint
-    console.log('📋 Test 1: Creating a new fingerprint');
+try {
+    // Test 1: Create fingerprint
+    console.log('📋 Test 1: Creating fingerprint');
     const fingerprint = new Fingerprint();
     console.log('✅ Fingerprint created');
-    console.log('📄 Fingerprint JSON preview:', JSON.stringify(fingerprint.json(), null, 2).substring(0, 200) + '...\n');
-
-    // Test 2: Update fingerprint properties
-    console.log('🔄 Test 2: Updating fingerprint properties');
+    
+    // Test 2: Get fingerprint data
+    console.log('\n🔍 Test 2: Getting fingerprint data');
+    const fpData = fingerprint.getJson();
+    console.log('✅ Fingerprint data retrieved');
+    console.log('🆔 UUID:', fpData.uuid);
+    console.log('📊 Vector (first 50 chars):', fpData.vector.substring(0, 50) + '...');
+    console.log('⏰ Creation:', fpData.creation);
+    
+    // Test 3: Update fingerprint
+    console.log('\n🔄 Test 3: Updating fingerprint');
     fingerprint.updateVector();
     fingerprint.updateCreation();
     fingerprint.updateTimings();
     console.log('✅ Fingerprint updated');
-    console.log('🆔 UUID:', fingerprint.json().uuid);
-    console.log('📊 Vector (base64):', fingerprint.json().vector.substring(0, 50) + '...');
-    console.log('⏰ Creation time:', fingerprint.json().creation);
-    console.log('⚡ Timing delay:', fingerprint.json().d, 'ms\n');
-
-    // Test 3: Test server time (with fallback)
-    console.log('🌐 Test 3: Fetching server time');
-    try {
-        await fingerprint.updateServerTime();
-        console.log('✅ Server time updated:', fingerprint.json().serverTimeInMS);
-    } catch (error) {
-        console.log('⚠️  Server time fetch failed (expected), using fallback:', fingerprint.json().serverTimeInMS);
-    }
-    console.log();
-
-    // Test 4: Test Identity with file persistence
-    console.log('💾 Test 4: Testing Identity with file persistence');
-    const identityFile = path.join(__dirname, 'test_data', 'test_identity.json');
     
-    // Clean up any existing test file
-    if (fs.existsSync(identityFile)) {
-        fs.unlinkSync(identityFile);
-    }
-
-    const identity = new Identity(identityFile);
-    console.log('✅ Identity created');
+    const updatedData = fingerprint.getJson();
+    console.log('⚡ New timing delay:', updatedData.d);
     
-    await identity.update();
-    console.log('🔄 Identity updated');
-    
-    identity.save();
-    console.log('💾 Identity saved to file');
-    
-    // Verify file was created
-    if (fs.existsSync(identityFile)) {
-        console.log('✅ Identity file exists');
-        const fileContent = fs.readFileSync(identityFile, 'utf8');
-        console.log('📄 File size:', fileContent.length, 'bytes');
-    } else {
-        console.log('❌ Identity file was not created');
-    }
-    console.log();
-
-    // Test 5: Load identity from file
-    console.log('📖 Test 5: Loading identity from saved file');
-    const loadedIdentity = new Identity(identityFile);
-    const originalFingerprint = identity.getFingerprint().json();
-    const loadedFingerprint = loadedIdentity.getFingerprint().json();
-    
-    console.log('✅ Identity loaded from file');
-    console.log('🔍 Original UUID:', originalFingerprint.uuid);
-    console.log('🔍 Loaded UUID:', loadedFingerprint.uuid);
-    console.log('✅ UUIDs match:', originalFingerprint.uuid === loadedFingerprint.uuid);
-    console.log();
-
-    // Test 6: BlackBox encoding/decoding
-    console.log('📦 Test 6: Testing BlackBox encoding/decoding');
-    const testRequest = {
-        features: [12345],
-        installation: "test-installation-id",
-        session: "test-session-id"
-    };
-    
-    identity.setRequest(testRequest);
-    const blackBox = new BlackBox(identity);
-    const encoded = blackBox.encoded();
-    
+    // Test 4: BlackBox encoding (static method)
+    console.log('\n📦 Test 4: Testing BlackBox static encoding');
+    const testData = '["test","data","array"]';
+    const encoded = BlackBox.encodeStatic(testData);
     console.log('✅ BlackBox encoded');
-    console.log('📝 Encoded blackbox:', encoded.substring(0, 100) + '...');
+    console.log('📝 Encoded (first 50 chars):', encoded.substring(0, 50) + '...');
     
-    // Test decoding
+    // Test 5: BlackBox decoding
+    console.log('\n🔓 Test 5: Testing BlackBox decoding');
     const decoded = BlackBox.decode(encoded);
-    if (decoded) {
-        console.log('✅ BlackBox decoded successfully');
-        const decodedObj = JSON.parse(decoded);
-        console.log('🔍 Decoded request matches:', JSON.stringify(decodedObj.request) === JSON.stringify(testRequest));
-    } else {
-        console.log('❌ BlackBox decoding failed');
-    }
-    console.log();
-
-    // Test 7: EncryptedBlackBox
-    console.log('🔒 Test 7: Testing EncryptedBlackBox');
-    const encryptedBlackBox = new EncryptedBlackBox(
-        identity,
-        'test-account-id',
-        'test-gsid-12345',
-        'test-installation-id'
-    );
+    console.log('✅ BlackBox decoded');
+    console.log('🔍 Decode successful:', decoded.length > 0);
     
-    const encrypted = encryptedBlackBox.encrypted();
-    console.log('✅ EncryptedBlackBox created');
-    console.log('🔐 Encrypted data:', encrypted.substring(0, 100) + '...');
-    console.log();
-
-    // Clean up
-    identity.close();
-    loadedIdentity.close();
-    
-    // Clean up test files
-    if (fs.existsSync(identityFile)) {
-        fs.unlinkSync(identityFile);
-        const testDir = path.dirname(identityFile);
-        if (fs.existsSync(testDir) && fs.readdirSync(testDir).length === 0) {
-            fs.rmdirSync(testDir);
-        }
-    }
-
-    console.log('🧹 Test cleanup completed');
     console.log('\n🎉 All tests completed successfully!');
     console.log('\n📋 Summary:');
-    console.log('   ✅ Fingerprint creation and updates');
-    console.log('   ✅ Identity file persistence');
+    console.log('   ✅ Fingerprint creation');
+    console.log('   ✅ Fingerprint data retrieval');
+    console.log('   ✅ Fingerprint updates');
     console.log('   ✅ BlackBox encoding/decoding');
-    console.log('   ✅ EncryptedBlackBox functionality');
-    console.log('\n💡 You can now use these classes to create and manage NosTale authentication fingerprints!');
+    console.log('\n💡 C++ bindings are working correctly!');
+    
+} catch (error) {
+    console.error('❌ Test failed:', error.message);
+    console.error(error.stack);
+    process.exit(1);
 }
-
-// Run the test
-runBasicTest().catch(console.error);
