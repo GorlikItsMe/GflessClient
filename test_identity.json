@@ -1,0 +1,12 @@
+{
+    "creation": "2025-08-03T15:17:00.470Z",
+    "d": 167,
+    "request": {
+        "features": [
+            12345
+        ],
+        "session": "test"
+    },
+    "serverTimeInMS": "2025-08-03T15:17:00.000Z",
+    "vector": "ZSAxNzU0MjM0MjIwMTU0"
+}

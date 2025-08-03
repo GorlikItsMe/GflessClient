@@ -97,7 +97,7 @@ QByteArray Fingerprint::randomString(int size) const
 QString Fingerprint::getServerDate() const
 {
     QUrl url(SERVER_FILE_GAME1_FILE);
-    SyncNetworAccesskManager network;
+    QNetworkAccessManager network;
     QNetworkRequest request(url);
 
     if (proxy) {
@@ -116,6 +116,11 @@ QString Fingerprint::getServerDate() const
     }
 
     QNetworkReply* reply = network.get(request);
+
+    // Wait for the reply to finish (simplified synchronous approach)
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
 
     QByteArray date = reply->rawHeader("Date").replace("GMT", "UTC");
     QDateTime dateTime = QLocale(QLocale::English).toDateTime(date, "ddd, d MMM yyyy HH:mm:ss t");
