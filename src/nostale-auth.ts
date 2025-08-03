@@ -136,7 +136,7 @@ export class NostaleAuth {
     return accounts;
   }
 
-  public async getToken(accountId: string): Promise<string> {
+  public async getGameToken(accountId: string): Promise<string> {
     if (!this.token) {
       return '';
     }

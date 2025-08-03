@@ -1,6 +1,5 @@
 import { BlackBox, EncryptedBlackBox } from '../blackbox';
 import { Identity } from '../identity';
-import { Fingerprint } from '../fingerprint';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -80,7 +79,7 @@ describe('BlackBox', () => {
   describe('request handling', () => {
     it('should set request data in fingerprint', () => {
       const requestData = { type: 'auth', timestamp: Date.now() };
-      const blackbox = new BlackBox(identity, requestData);
+      new BlackBox(identity, requestData);
 
       const fingerprint = identity.getFingerprint().json();
       expect(fingerprint.request).toEqual(requestData);

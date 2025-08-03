@@ -85,10 +85,13 @@ describe('Fingerprint', () => {
   });
 
   describe('timing updates', () => {
-    it('should update creation timestamp', () => {
+    it('should update creation timestamp', async () => {
       const originalData = fingerprint.json();
       const originalCreation = originalData.creation;
 
+      // Add a small delay to ensure different timestamp
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       fingerprint.updateCreation();
       const updatedData = fingerprint.json();
 

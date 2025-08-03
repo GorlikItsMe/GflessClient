@@ -6,6 +6,9 @@ export { NostaleAuth } from './nostale-auth';
 export { GameforgeAccount } from './gameforge-account';
 export { GameAccount } from './game-account';
 
+// Import for internal use
+import { Identity } from './identity';
+
 // Types
 export {
   ProxyConfig,

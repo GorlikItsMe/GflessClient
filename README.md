@@ -237,7 +237,7 @@ class NostaleAuth {
   
   async authenticate(email: string, password: string): Promise<AuthResult>
   async getAccounts(): Promise<Map<string, string>>
-  async getToken(accountId: string): Promise<string>
+  async getGameToken(accountId: string): Promise<string>
   async createGameAccount(email: string, name: string, gfLang?: string): Promise<any>
   
   getInstallationId(): string

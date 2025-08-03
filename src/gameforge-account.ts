@@ -49,7 +49,7 @@ export class GameforgeAccount {
   }
 
   public async getToken(accountId: string): Promise<string> {
-    return await this.auth.getToken(accountId);
+    return await this.auth.getGameToken(accountId);
   }
 
   public getEmail(): string {

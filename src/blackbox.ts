@@ -114,7 +114,7 @@ export class EncryptedBlackBox extends BlackBox {
   private encrypt(data: Buffer, key: Buffer): Buffer {
     // Use AES-256-CBC encryption similar to the original implementation
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher('aes-256-cbc', key);
+    const cipher = crypto.createCipheriv('aes-256-cbc', key.subarray(0, 32), iv);
     
     let encrypted = cipher.update(data);
     encrypted = Buffer.concat([encrypted, cipher.final()]);
