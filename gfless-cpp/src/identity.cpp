@@ -84,3 +84,5 @@ void Identity::save() const {
         std::cerr << "Error: Cannot write to identity file: " << filename_ << std::endl;
     }
 }
+
+} // namespace gfless

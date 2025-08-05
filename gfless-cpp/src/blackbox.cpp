@@ -1,6 +1,8 @@
 #include "gfless/blackbox.h"
 #include "gfless/crypto_utils.h"
 #include <limits>
+#include <iostream>
+#include <algorithm>
 
 namespace gfless {
 
@@ -20,7 +22,7 @@ std::string BlackBox::encode(const json& fingerprint) const {
     json fingerprintArray = json::array();
     
     for (const auto& field : BLACKBOX_FIELDS) {
-        fingerprintArray.push_back(fingerprint.value(field, json::null()));
+        fingerprintArray.push_back(fingerprint.value(field, json()));
     }
     
     std::string fingerprintArrayStr = fingerprintArray.dump();
@@ -143,7 +145,7 @@ json EncryptedBlackBox::createRequest(const std::string& gsid, const std::string
     json featuresArray = json::array();
     
     // Random feature value
-    std::uniform_int_distribution<int> dis(1, std::numeric_limits<int>::max());
+    std::uniform_int_distribution<int> dis(1, (std::numeric_limits<int>::max)());
     featuresArray.push_back(dis(Utils::getRandomGenerator()));
     
     request["features"] = featuresArray;
