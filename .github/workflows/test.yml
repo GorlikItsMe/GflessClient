@@ -90,21 +90,22 @@ jobs:
       run: |
         # Windows uses MSVC by default, no additional setup needed for basic testing
         echo "Using MSVC compiler on Windows"
+        vcpkg install curl openssl nlohmann-json
 
     - name: Configure CMake
-      working-directory: gfless-cpp
+      working-directory: gfless-cpp/build
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
 
     - name: Build C++ library and tests
-      working-directory: gfless-cpp
+      working-directory: gfless-cpp/build
       run: |
-        cmake --build build --config Debug --parallel
+        cmake --build . --config Release
 
     - name: Run C++ tests
-      working-directory: gfless-cpp
+      working-directory: gfless-cpp/build
       run: |
-        ctest --test-dir build --output-on-failure
+        ctest -C Release
 
   # Integration Tests (Node.js + C++ binding)
   # test-integration:
