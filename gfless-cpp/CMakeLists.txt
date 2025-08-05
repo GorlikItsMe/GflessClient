@@ -4,6 +4,11 @@ project(gfless-cpp VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Set runtime library to static for compatibility with node-addon-api
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 # Find required packages
 find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
