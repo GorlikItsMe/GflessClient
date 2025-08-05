@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [18, 20]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: gfless-nodejs/package-lock.json
+
+    # Install system dependencies for C++ build
+    - name: Install system dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake libssl-dev libcurl4-openssl-dev pkg-config
+
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install cmake openssl curl pkg-config
+
+    # Install Node.js dependencies
+    - name: Install Node.js dependencies
+      working-directory: gfless-nodejs
+      run: npm ci
+
+    # Build and test Node.js components
+    - name: Build Node.js native modules
+      working-directory: gfless-nodejs
+      run: npm run build:native
+
+    - name: Run Node.js tests
+      working-directory: gfless-nodejs
+      run: npm test
+
+    # Build and test C++ components
+    - name: Configure CMake
+      working-directory: gfless-cpp
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+
+    - name: Build C++ library and tests
+      working-directory: gfless-cpp
+      run: |
+        cmake --build build --config Debug --parallel
+
+    - name: Run C++ tests
+      working-directory: gfless-cpp
+      run: |
+        ctest --test-dir build --output-on-failure
+
+    # Security audit
+    - name: Run security audit
+      working-directory: gfless-nodejs
+      run: npm audit --audit-level=moderate 

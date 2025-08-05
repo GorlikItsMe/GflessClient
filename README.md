@@ -169,6 +169,38 @@ npm run test:coverage
 npm test -- utils.test.ts
 ```
 
+## 🔄 Continuous Integration
+
+This project uses GitHub Actions for automated testing across multiple platforms:
+
+### Automated Testing
+- **Multi-platform testing**: Ubuntu, Windows, macOS
+- **Node.js versions**: 18.x, 20.x
+- **C++ compilation**: GCC, Clang, MSVC
+- **Security audits**: npm audit for dependency vulnerabilities
+- **Build verification**: Ensures both C++ and Node.js components build successfully
+
+### Workflow Files
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) - Main CI pipeline
+- [`.github/workflows/test.yml`](.github/workflows/test.yml) - Comprehensive testing suite
+
+### Running Tests Locally
+Before submitting a pull request, ensure all tests pass locally:
+
+```bash
+# Test C++ library
+cd gfless-cpp
+mkdir build && cd build
+cmake .. && make
+ctest --output-on-failure
+
+# Test Node.js library
+cd gfless-nodejs
+npm install
+npm test
+npm audit
+```
+
 ## 📚 Documentation
 
 ### API Documentation
