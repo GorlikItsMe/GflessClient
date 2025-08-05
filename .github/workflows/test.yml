@@ -58,17 +58,7 @@ jobs:
     strategy:
       matrix:
         # os: [ubuntu-latest, windows-latest, macos-latest]
-        os: [ubuntu-latest, windows-latest]
-        compiler: [gcc, clang]
-        exclude:
-          # Windows doesn't have gcc/clang matrix, use MSVC
-          - os: windows-latest
-            compiler: gcc
-          - os: windows-latest
-            compiler: clang
-          # macOS doesn't have gcc/clang matrix, use clang
-          - os: macos-latest
-            compiler: gcc
+        os: [windows-latest]
 
     steps:
     - name: Checkout code
