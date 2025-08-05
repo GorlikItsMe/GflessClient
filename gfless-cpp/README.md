@@ -1,33 +1,5 @@
 # Gfless C++ Library
 
-A Qt-free C++ library for generating device fingerprints and blackbox data for authentication purposes. This is a modern port of the original GflessClient authentication system, removing Qt dependencies and using standard C++ libraries.
-
-## Features
-
-- **Qt-Free**: Pure C++ implementation using modern C++17 standards
-- **Cross-Platform**: Supports Linux, macOS, and Windows
-- **Modern Dependencies**: Uses nlohmann/json, libcurl, and OpenSSL
-- **Complete Port**: Includes Fingerprint, Identity, and BlackBox functionality
-- **Proxy Support**: Built-in SOCKS5 proxy support for network operations
-- **Thread-Safe**: Safe for use in multi-threaded applications
-- **Comprehensive Testing**: Full test suite using Google Test
-
-## Core Components
-
-### BlackBox
-- **Purpose**: Encodes and decodes fingerprint data for authentication
-- **Features**: Base64 encoding, URL encoding, custom encoding algorithm
-- **Classes**: `BlackBox` (basic), `EncryptedBlackBox` (for authentication)
-
-### Fingerprint  
-- **Purpose**: Generates and manages device fingerprints
-- **Features**: Vector updates, server time synchronization, random timing
-- **Data**: Device characteristics, timestamps, browser fingerprints
-
-### Identity
-- **Purpose**: Manages fingerprint persistence and updates
-- **Features**: File-based storage, automatic updates, proxy configuration
-- **Persistence**: JSON format for cross-platform compatibility
 
 ## Dependencies
 
@@ -63,26 +35,12 @@ ctest
 sudo make install
 ```
 
-### macOS
-```bash
-# Install dependencies using Homebrew
-brew install cmake curl openssl nlohmann-json
-
-# Clone and build
-git clone <repository-url>
-cd gfless-cpp
-mkdir build && cd build
-cmake ..
-make -j$(sysctl -n hw.ncpu)
-
-# Run tests
-ctest
-```
 
 ### Windows (Visual Studio)
 ```powershell
 # Install dependencies using vcpkg
 vcpkg install curl openssl nlohmann-json
+# vcpkg integrate install
 
 # Clone and build
 git clone <repository-url>

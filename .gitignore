@@ -440,3 +440,5 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+gfless-cpp/CMakeFiles
