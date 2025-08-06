@@ -14,12 +14,13 @@ public:
     
     static std::string decode(const std::string& blackbox);
     static std::string encode(const std::string& fingerprintArrayStr);
-    
+    static std::string encode(const json& fingerprint);
+
 protected:
     static const std::vector<std::string> BLACKBOX_FIELDS;
     std::shared_ptr<Identity> identity_;
     
-    std::string encode(const json& fingerprint) const;
+    // std::string encode(const json& fingerprint) const;
 };
 
 class EncryptedBlackBox : public BlackBox {

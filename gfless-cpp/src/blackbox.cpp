@@ -18,7 +18,7 @@ BlackBox::BlackBox(std::shared_ptr<Identity> ident, const json& req)
     identity_->setRequest(req);
 }
 
-std::string BlackBox::encode(const json& fingerprint) const {
+std::string BlackBox::encode(const json& fingerprint) {
     json fingerprintArray = json::array();
     
     for (const auto& field : BLACKBOX_FIELDS) {
@@ -65,7 +65,7 @@ std::string BlackBox::decode(const std::string& blackbox) {
     std::string fingerprintStr = Utils::urlDecode(uriDecoded);
     
     try {
-        json fingerprintArray = json::parse(fingerprintStr);
+        auto fingerprintArray = json::parse(fingerprintStr);
         json fingerprint = json::object();
         
         if (fingerprintArray.size() != BLACKBOX_FIELDS.size()) {
@@ -85,6 +85,10 @@ std::string BlackBox::decode(const std::string& blackbox) {
 }
 
 std::string BlackBox::encode(const std::string& fingerprintArrayStr) {
+	// check if it is array (not object) Check if it starts with '['
+    if (fingerprintArrayStr.empty() || fingerprintArrayStr[0] != '[') {
+        throw std::runtime_error("BlackBox::encode Error: Input must be a JSON array string");
+	}
     std::string uriEncoded = Utils::urlEncode(fingerprintArrayStr);
     
     // Encode process (reverse of decode)

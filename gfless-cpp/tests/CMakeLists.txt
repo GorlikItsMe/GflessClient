@@ -5,7 +5,7 @@ add_executable(gfless_tests
     test_fingerprint.cpp
     test_blackbox.cpp
     test_integration.cpp
-)
+ "testtools.cpp" "testtools.h")
 
 # Link test executable with the library and gtest
 target_link_libraries(gfless_tests

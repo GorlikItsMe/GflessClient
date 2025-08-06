@@ -2,31 +2,26 @@
 #include "gfless/gfless.h"
 #include <fstream>
 #include <filesystem>
+#include "testtools.h"
 
 using namespace gfless;
 
 class IntegrationTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        testDir = "/tmp/gfless_test";
-        std::filesystem::create_directories(testDir);
-        identityFile = testDir + "/identity.json";
+        testIdentityFilePath = TestTools::createExampleIdentityFile();
     }
     
     void TearDown() override {
-        // Clean up test directory
-        if (std::filesystem::exists(testDir)) {
-            std::filesystem::remove_all(testDir);
-        }
+		TestTools::cleanupTestFolder();
     }
     
-    std::string testDir;
-    std::string identityFile;
+    std::string testIdentityFilePath;
 };
 
 TEST_F(IntegrationTest, CompleteWorkflowTest) {
     // Create an identity
-    auto identity = createIdentity(identityFile);
+    auto identity = createIdentity(testIdentityFilePath);
     
     // Update the identity
     identity->update();
@@ -51,13 +46,13 @@ TEST_F(IntegrationTest, CompleteWorkflowTest) {
     EXPECT_FALSE(encrypted.empty());
     
     // Verify the identity file was created
-    EXPECT_TRUE(std::filesystem::exists(identityFile));
+    EXPECT_TRUE(std::filesystem::exists(testIdentityFilePath));
 }
 
 TEST_F(IntegrationTest, IdentityPersistenceTest) {
     // Create an identity and save some data
     {
-        auto identity = createIdentity(identityFile);
+        auto identity = createIdentity(testIdentityFilePath);
         identity->update();
         
         json fp = identity->getFingerprint().getJson();
@@ -67,7 +62,7 @@ TEST_F(IntegrationTest, IdentityPersistenceTest) {
     
     // Load the identity again and verify data persists
     {
-        auto identity = createIdentity(identityFile);
+        auto identity = createIdentity(testIdentityFilePath);
         json fp = identity->getFingerprint().getJson();
         
         EXPECT_FALSE(fp.empty());
@@ -79,7 +74,7 @@ TEST_F(IntegrationTest, IdentityPersistenceTest) {
 
 TEST_F(IntegrationTest, ProxyConfigurationTest) {
     // Test identity creation with proxy settings
-    auto identity = createIdentity(identityFile, "127.0.0.1", "8080", "user", "pass", true);
+    auto identity = createIdentity(testIdentityFilePath, "127.0.0.1", "8080", "user", "pass", true);
     
     EXPECT_NE(identity, nullptr);
     

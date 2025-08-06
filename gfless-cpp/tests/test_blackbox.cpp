@@ -2,39 +2,27 @@
 #include "gfless/gfless.h"
 #include <fstream>
 #include <filesystem>
+#include <testtools.h>
 
 using namespace gfless;
 
 class BlackBoxTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Create a temporary identity file for testing
-        testIdentityFile = "/tmp/test_identity.json";
-        
-        json testFp = json::object();
-        testFp["v"] = 7;
-        testFp["creation"] = "2024-01-01T00:00:00.000Z";
-        testFp["vector"] = Utils::base64Encode("test_vector_data 1704067200000");
-        testFp["d"] = 200;
-        testFp["uuid"] = "test-uuid";
-        testFp["userAgent"] = "test-agent";
-        
-        std::ofstream file(testIdentityFile);
-        file << testFp.dump();
-        file.close();
-        
-        identity = createIdentity(testIdentityFile);
+        testIdentityFilePath = TestTools::createExampleIdentityFile();        
+        identity = createIdentity(testIdentityFilePath);
+
+		exampleIdentityJson = TestTools::getExampleIdentityJson().dump();
     }
     
     void TearDown() override {
         // Clean up test file
-        if (std::filesystem::exists(testIdentityFile)) {
-            std::filesystem::remove(testIdentityFile);
-        }
+        TestTools::cleanupTestFolder();
     }
     
-    std::string testIdentityFile;
+    std::string testIdentityFilePath;
     std::shared_ptr<Identity> identity;
+    std::string exampleIdentityJson;
 };
 
 TEST_F(BlackBoxTest, ConstructorTest) {
@@ -56,14 +44,17 @@ TEST_F(BlackBoxTest, EncodedTest) {
 }
 
 TEST_F(BlackBoxTest, EncodeDecodeRoundTripTest) {
-    std::string testData = "[1,2,3,\"test\"]";
-    
-    std::string encoded = BlackBox::encode(testData);
-    std::string decoded = BlackBox::decode(encoded);
-    
+    std::string testData = exampleIdentityJson;
+	EXPECT_FALSE(testData.empty());
+
+    auto fingerprintObj = json::parse(testData);
+
+    std::string encoded = BlackBox::encode(fingerprintObj);
     EXPECT_FALSE(encoded.empty());
-    EXPECT_FALSE(decoded.empty());
     EXPECT_EQ(encoded.substr(0, 4), "tra:");
+
+    std::string decoded = BlackBox::decode(encoded);    
+    EXPECT_FALSE(decoded.empty());
 }
 
 TEST_F(BlackBoxTest, EncryptedBlackBoxTest) {
@@ -75,7 +66,6 @@ TEST_F(BlackBoxTest, EncryptedBlackBoxTest) {
     std::string encrypted = encryptedBox->encrypted();
     
     EXPECT_FALSE(encrypted.empty());
-    EXPECT_NE(encrypted.find("="), std::string::npos); // Base64 might have padding
 }
 
 TEST_F(BlackBoxTest, EncryptedBlackBoxRequestTest) {
