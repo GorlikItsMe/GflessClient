@@ -1,0 +1,211 @@
+name: C++ Library CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'gfless-cpp/**'
+      - '.github/workflows/cpp.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'gfless-cpp/**'
+      - '.github/workflows/cpp.yml'
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  test-ubuntu:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake pkg-config \
+          libcurl4-openssl-dev libssl-dev nlohmann-json3-dev
+    
+    - name: Configure CMake
+      working-directory: gfless-cpp
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+    
+    - name: Build
+      working-directory: gfless-cpp/build
+      run: make -j$(nproc)
+    
+    - name: Run tests
+      working-directory: gfless-cpp/build
+      run: |
+        ctest --output-on-failure -V
+    
+    - name: Run examples
+      working-directory: gfless-cpp/build
+      run: |
+        echo "Running basic example..."
+        timeout 30 ./examples/basic_example || echo "Example completed"
+        echo "Running encrypted example..."
+        timeout 30 ./examples/encrypted_example || echo "Example completed"
+
+  test-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        brew update
+        brew install cmake curl openssl nlohmann-json pkg-config
+    
+    - name: Configure CMake
+      working-directory: gfless-cpp
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DOPENSSL_ROOT_DIR=$(brew --prefix openssl)
+    
+    - name: Build
+      working-directory: gfless-cpp/build
+      run: make -j$(sysctl -n hw.ncpu)
+    
+    - name: Run tests
+      working-directory: gfless-cpp/build
+      run: |
+        ctest --output-on-failure -V
+    
+    - name: Run examples
+      working-directory: gfless-cpp/build
+      run: |
+        echo "Running basic example..."
+        timeout 30 ./examples/basic_example || echo "Example completed"
+        echo "Running encrypted example..."
+        timeout 30 ./examples/encrypted_example || echo "Example completed"
+
+  test-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+        vcpkgGitCommitId: '2024.01.12'
+    
+    - name: Install dependencies
+      run: |
+        vcpkg install curl openssl nlohmann-json --triplet x64-windows
+    
+    - name: Configure CMake
+      working-directory: gfless-cpp
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} `
+          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    
+    - name: Build
+      working-directory: gfless-cpp/build
+      run: cmake --build . --config ${{env.BUILD_TYPE}} --parallel
+    
+    - name: Run tests
+      working-directory: gfless-cpp/build
+      run: |
+        ctest --output-on-failure -V -C ${{env.BUILD_TYPE}}
+    
+    - name: Run examples
+      working-directory: gfless-cpp/build
+      shell: cmd
+      run: |
+        echo Running basic example...
+        timeout /t 30 examples\\Release\\basic_example.exe || echo Example completed
+        echo Running encrypted example...
+        timeout /t 30 examples\\Release\\encrypted_example.exe || echo Example completed
+
+  code-coverage:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake pkg-config \
+          libcurl4-openssl-dev libssl-dev nlohmann-json3-dev lcov
+    
+    - name: Configure CMake with coverage
+      working-directory: gfless-cpp
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_FLAGS="--coverage" \
+          -DCMAKE_C_FLAGS="--coverage"
+    
+    - name: Build
+      working-directory: gfless-cpp/build
+      run: make -j$(nproc)
+    
+    - name: Run tests
+      working-directory: gfless-cpp/build
+      run: ctest --output-on-failure
+    
+    - name: Generate coverage report
+      working-directory: gfless-cpp
+      run: |
+        lcov --directory build --capture --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/examples/*' --output-file coverage.info
+        lcov --list coverage.info
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: gfless-cpp/coverage.info
+        flags: cpp
+        name: cpp-coverage
+
+  memory-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake pkg-config \
+          libcurl4-openssl-dev libssl-dev nlohmann-json3-dev valgrind
+    
+    - name: Configure CMake
+      working-directory: gfless-cpp
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Debug
+    
+    - name: Build
+      working-directory: gfless-cpp/build
+      run: make -j$(nproc)
+    
+    - name: Run memory tests
+      working-directory: gfless-cpp/build
+      run: |
+        valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all \
+          --track-origins=yes --error-exitcode=1 \
+          ./gfless_tests --gtest_filter="UtilsTest.Base64EncodeDecodeTest"

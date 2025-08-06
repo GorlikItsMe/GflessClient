@@ -1,0 +1,359 @@
+name: Combined CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  full-integration-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: gfless-nodejs/package-lock.json
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake pkg-config \
+          libcurl4-openssl-dev libssl-dev nlohmann-json3-dev python3-dev
+    
+    - name: Build and test C++ library
+      working-directory: gfless-cpp
+      run: |
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        make -j$(nproc)
+        ctest --output-on-failure -V
+    
+    - name: Build and test Node.js library
+      working-directory: gfless-nodejs
+      run: |
+        npm ci
+        npm run build
+        npm test
+    
+    - name: Cross-platform compatibility test
+      run: |
+        echo "Testing C++ library output compatibility with Node.js library..."
+        
+        # Create test identity with C++ library
+        cd gfless-cpp/build
+        ./examples/basic_example
+        
+        # Test if Node.js library can read the same identity file
+        cd ../../gfless-nodejs
+        node -e "
+        const { createIdentity, Utils } = require('./lib');
+        try {
+          console.log('Testing identity file compatibility...');
+          const identity = createIdentity('../../gfless-cpp/build/identity.json');
+          console.log('✓ Node.js library can read C++ generated identity');
+          
+          // Test static methods compatibility
+          const testData = 'compatibility test data';
+          const { BlackBox } = require('./lib');
+          const encoded = BlackBox.encode(testData);
+          console.log('✓ BlackBox encoding works');
+          
+          const decoded = BlackBox.decode(encoded);
+          if (decoded.includes('compatibility test data')) {
+            console.log('✓ BlackBox round-trip successful');
+          } else {
+            console.log('✗ BlackBox round-trip failed');
+            process.exit(1);
+          }
+          
+          console.log('✓ Cross-platform compatibility verified');
+        } catch (error) {
+          console.error('✗ Compatibility test failed:', error.message);
+          process.exit(1);
+        }
+        "
+
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  build-release-artifacts:
+    runs-on: ${{ matrix.os }}
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+            archive: tar.gz
+          - os: macos-latest
+            platform: darwin-x64
+            archive: tar.gz
+          - os: windows-latest
+            platform: win32-x64
+            archive: zip
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Get version from tag
+      id: version
+      run: |
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+    
+    # Platform-specific dependency installation
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake pkg-config \
+          libcurl4-openssl-dev libssl-dev nlohmann-json3-dev
+    
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew update
+        brew install cmake curl openssl nlohmann-json pkg-config
+    
+    - name: Setup vcpkg (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+        vcpkgGitCommitId: '2024.01.12'
+    
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        vcpkg install curl openssl nlohmann-json --triplet x64-windows
+    
+    # Build C++ library
+    - name: Build C++ library (Unix)
+      if: matrix.os != 'windows-latest'
+      working-directory: gfless-cpp
+      run: |
+        mkdir build && cd build
+        if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+          cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
+            -DCMAKE_INSTALL_PREFIX=../install
+        else
+          cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DCMAKE_INSTALL_PREFIX=../install
+        fi
+        make -j$(nproc) install
+    
+    - name: Build C++ library (Windows)
+      if: matrix.os == 'windows-latest'
+      working-directory: gfless-cpp
+      run: |
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_INSTALL_PREFIX=../install
+        cmake --build . --config $env:BUILD_TYPE --parallel
+        cmake --install . --config $env:BUILD_TYPE
+    
+    # Create archive
+    - name: Create C++ archive (Unix)
+      if: matrix.os != 'windows-latest'
+      working-directory: gfless-cpp
+      run: |
+        tar -czf ../gfless-cpp-${{ steps.version.outputs.VERSION }}-${{ matrix.platform }}.tar.gz \
+          -C install .
+    
+    - name: Create C++ archive (Windows)
+      if: matrix.os == 'windows-latest'
+      working-directory: gfless-cpp
+      run: |
+        Compress-Archive -Path install/* -DestinationPath ../gfless-cpp-${{ steps.version.outputs.VERSION }}-${{ matrix.platform }}.zip
+    
+    # Upload artifacts
+    - name: Upload C++ artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: gfless-cpp-${{ matrix.platform }}
+        path: gfless-cpp-${{ steps.version.outputs.VERSION }}-${{ matrix.platform }}.${{ matrix.archive }}
+
+  build-nodejs-prebuilds:
+    runs-on: ${{ matrix.os }}
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: [16, 18, 20]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: darwin
+          - os: windows-latest
+            platform: win32
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: gfless-nodejs/package-lock.json
+    
+    # Install system dependencies (same as previous job)
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake pkg-config \
+          libcurl4-openssl-dev libssl-dev nlohmann-json3-dev python3-dev
+    
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew update
+        brew install cmake curl openssl nlohmann-json pkg-config
+    
+    - name: Setup vcpkg (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+        vcpkgGitCommitId: '2024.01.12'
+    
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        vcpkg install curl openssl nlohmann-json --triplet x64-windows
+    
+    # Build C++ library first
+    - name: Build C++ library (Unix)
+      if: matrix.os != 'windows-latest'
+      working-directory: gfless-cpp
+      run: |
+        mkdir -p build && cd build
+        if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+          cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl)
+        else
+          cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        fi
+        make -j$(nproc)
+    
+    - name: Build C++ library (Windows)
+      if: matrix.os == 'windows-latest'
+      working-directory: gfless-cpp
+      run: |
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        cmake --build . --config $env:BUILD_TYPE --parallel
+    
+    # Build Node.js addon
+    - name: Build Node.js addon
+      working-directory: gfless-nodejs
+      run: |
+        npm ci
+        npm run build:native
+        npm run build:ts
+    
+    # Create prebuilt binary
+    - name: Create prebuild
+      working-directory: gfless-nodejs
+      run: |
+        mkdir -p prebuilds/${{ matrix.platform }}-x64
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          cp build/Release/gfless.node prebuilds/${{ matrix.platform }}-x64/node-${{ matrix.node-version }}.node
+        else
+          cp build/Release/gfless.node prebuilds/${{ matrix.platform }}-x64/node-${{ matrix.node-version }}.node
+        fi
+      shell: bash
+    
+    - name: Upload prebuild
+      uses: actions/upload-artifact@v3
+      with:
+        name: prebuild-${{ matrix.platform }}-node${{ matrix.node-version }}
+        path: gfless-nodejs/prebuilds/${{ matrix.platform }}-x64/
+
+  create-release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-release-artifacts, build-nodejs-prebuilds, full-integration-test]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts/
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/gfless-cpp-*/*
+        body: |
+          ## Gfless Libraries Release ${{ github.ref_name }}
+          
+          This release includes:
+          - **C++ Library**: Cross-platform binaries for Linux, macOS, and Windows
+          - **Node.js Library**: Prebuilt native addons for multiple Node.js versions
+          
+          ### Installation
+          
+          **C++ Library:**
+          ```bash
+          # Download and extract the appropriate archive for your platform
+          # Follow the README instructions for integration
+          ```
+          
+          **Node.js Library:**
+          ```bash
+          npm install gfless@${{ github.ref_name }}
+          ```
+          
+          ### Changes
+          See the commit history for detailed changes in this release.
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

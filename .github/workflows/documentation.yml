@@ -1,0 +1,317 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'README.md'
+      - 'gfless-cpp/README.md'
+      - 'gfless-nodejs/README.md'
+      - 'gfless-cpp/include/**'
+      - 'gfless-nodejs/src/**'
+      - '.github/workflows/documentation.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'README.md'
+      - 'gfless-cpp/README.md'
+      - 'gfless-nodejs/README.md'
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Check markdown links
+      uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+        config-file: '.github/workflows/markdown-link-check.json'
+        check-modified-files-only: 'yes'
+
+  generate-cpp-docs:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install doxygen
+      run: |
+        sudo apt update
+        sudo apt install -y doxygen graphviz
+    
+    - name: Generate C++ documentation
+      working-directory: gfless-cpp
+      run: |
+        mkdir -p docs
+        cat > Doxyfile << EOF
+        PROJECT_NAME           = "Gfless C++ Library"
+        PROJECT_NUMBER         = "1.0.0"
+        PROJECT_BRIEF          = "Qt-free C++ library for device fingerprinting and authentication"
+        
+        OUTPUT_DIRECTORY       = docs
+        INPUT                  = include/gfless src
+        RECURSIVE              = YES
+        EXTRACT_ALL            = YES
+        EXTRACT_STATIC         = YES
+        EXTRACT_PRIVATE        = NO
+        
+        GENERATE_HTML          = YES
+        HTML_OUTPUT            = html
+        HTML_FILE_EXTENSION    = .html
+        
+        GENERATE_LATEX         = NO
+        
+        HAVE_DOT               = YES
+        CALL_GRAPH             = YES
+        CALLER_GRAPH           = YES
+        
+        FILE_PATTERNS          = *.h *.hpp *.cpp
+        EXCLUDE_PATTERNS       = */tests/* */examples/*
+        
+        USE_MDFILE_AS_MAINPAGE = README.md
+        EOF
+        
+        doxygen Doxyfile
+    
+    - name: Upload C++ docs
+      uses: actions/upload-artifact@v3
+      with:
+        name: cpp-docs
+        path: gfless-cpp/docs/html/
+
+  generate-nodejs-docs:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: gfless-nodejs/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: gfless-nodejs
+      run: npm ci
+    
+    - name: Install typedoc
+      working-directory: gfless-nodejs
+      run: npm install --save-dev typedoc
+    
+    - name: Generate TypeScript documentation
+      working-directory: gfless-nodejs
+      run: |
+        npx typedoc src/index.ts --out docs --name "Gfless Node.js Library" \
+          --readme README.md --theme default --excludePrivate
+    
+    - name: Upload Node.js docs
+      uses: actions/upload-artifact@v3
+      with:
+        name: nodejs-docs
+        path: gfless-nodejs/docs/
+
+  deploy-docs:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [generate-cpp-docs, generate-nodejs-docs]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download C++ docs
+      uses: actions/download-artifact@v3
+      with:
+        name: cpp-docs
+        path: docs-site/cpp/
+    
+    - name: Download Node.js docs
+      uses: actions/download-artifact@v3
+      with:
+        name: nodejs-docs
+        path: docs-site/nodejs/
+    
+    - name: Create documentation index
+      run: |
+        mkdir -p docs-site
+        cat > docs-site/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Gfless Libraries Documentation</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 2rem;
+              line-height: 1.6;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px solid #eee;
+              padding-bottom: 2rem;
+              margin-bottom: 2rem;
+            }
+            .lib-section {
+              background: #f8f9fa;
+              padding: 1.5rem;
+              margin: 1rem 0;
+              border-radius: 8px;
+              border-left: 4px solid #007acc;
+            }
+            .lib-section h2 {
+              margin-top: 0;
+              color: #007acc;
+            }
+            .links {
+              display: flex;
+              gap: 1rem;
+              flex-wrap: wrap;
+            }
+            .links a {
+              display: inline-block;
+              padding: 0.5rem 1rem;
+              background: #007acc;
+              color: white;
+              text-decoration: none;
+              border-radius: 4px;
+              transition: background 0.2s;
+            }
+            .links a:hover {
+              background: #005a9e;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 3rem;
+              padding-top: 2rem;
+              border-top: 1px solid #eee;
+              color: #666;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🔧 Gfless Libraries Documentation</h1>
+            <p>Qt-free C++ and Node.js libraries for device fingerprinting and authentication</p>
+          </div>
+          
+          <div class="lib-section">
+            <h2>🔧 C++ Library</h2>
+            <p>Pure C++17 implementation with minimal dependencies</p>
+            <div class="links">
+              <a href="cpp/index.html">📖 API Documentation</a>
+              <a href="https://github.com/your-org/gfless/tree/main/gfless-cpp">📂 Source Code</a>
+              <a href="https://github.com/your-org/gfless/blob/main/gfless-cpp/README.md">📋 README</a>
+            </div>
+          </div>
+          
+          <div class="lib-section">
+            <h2>🚀 Node.js Library</h2>
+            <p>TypeScript-enabled library with native performance</p>
+            <div class="links">
+              <a href="nodejs/index.html">📖 API Documentation</a>
+              <a href="https://github.com/your-org/gfless/tree/main/gfless-nodejs">📂 Source Code</a>
+              <a href="https://github.com/your-org/gfless/blob/main/gfless-nodejs/README.md">📋 README</a>
+            </div>
+          </div>
+          
+          <div class="lib-section">
+            <h2>🚀 Quick Start</h2>
+            <h3>C++ Library</h3>
+            <pre><code>#include "gfless/gfless.h"
+
+int main() {
+    auto identity = gfless::createIdentity("identity.json");
+    identity->update();
+    
+    auto encryptedBox = gfless::createEncryptedBlackBox(
+        identity, "account", "session", "installation"
+    );
+    
+    std::cout << encryptedBox->encrypted() << std::endl;
+    return 0;
+}</code></pre>
+            
+            <h3>Node.js Library</h3>
+            <pre><code>const { createIdentity, createEncryptedBlackBox } = require('gfless');
+
+const identity = createIdentity('identity.json');
+identity.update();
+
+const encryptedBox = createEncryptedBlackBox(
+    identity, 'account', 'session', 'installation'
+);
+
+console.log(encryptedBox.encrypted());</code></pre>
+          </div>
+          
+          <div class="footer">
+            <p>Generated automatically from the main branch</p>
+            <p>Last updated: <span id="timestamp"></span></p>
+            <script>
+              document.getElementById('timestamp').textContent = new Date().toLocaleString();
+            </script>
+          </div>
+        </body>
+        </html>
+        EOF
+    
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs-site
+        publish_branch: gh-pages
+        force_orphan: true
+
+  readme-sync:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Validate README consistency
+      run: |
+        echo "Checking README files for consistency..."
+        
+        # Check if version numbers are consistent
+        main_version=$(grep -o "Version.*[0-9]\+\.[0-9]\+\.[0-9]\+" README.md | head -1 || echo "")
+        cpp_version=$(grep -o "VERSION.*[0-9]\+\.[0-9]\+\.[0-9]\+" gfless-cpp/include/gfless/gfless.h | head -1 || echo "")
+        nodejs_version=$(grep -o '"version".*"[0-9]\+\.[0-9]\+\.[0-9]\+"' gfless-nodejs/package.json | head -1 || echo "")
+        
+        echo "Main README version references: $main_version"
+        echo "C++ library version: $cpp_version"  
+        echo "Node.js package version: $nodejs_version"
+        
+        # Check for broken internal links
+        echo "Checking internal links..."
+        
+        if grep -q "\](./gfless-cpp/" README.md; then
+          echo "✓ C++ library links found in main README"
+        else
+          echo "⚠️ No C++ library links in main README"
+        fi
+        
+        if grep -q "\](./gfless-nodejs/" README.md; then
+          echo "✓ Node.js library links found in main README"
+        else
+          echo "⚠️ No Node.js library links in main README"
+        fi
+        
+        echo "README validation completed"
