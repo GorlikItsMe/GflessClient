@@ -1,11 +1,5 @@
 # Gfless Libraries
 
-[![C++ CI](https://github.com/your-org/gfless/workflows/C++%20Library%20CI/badge.svg)](https://github.com/your-org/gfless/actions/workflows/cpp.yml)
-[![Node.js CI](https://github.com/your-org/gfless/workflows/Node.js%20Library%20CI/badge.svg)](https://github.com/your-org/gfless/actions/workflows/nodejs.yml)
-[![Combined CI/CD](https://github.com/your-org/gfless/workflows/Combined%20CI/CD%20Pipeline/badge.svg)](https://github.com/your-org/gfless/actions/workflows/combined.yml)
-[![Documentation](https://github.com/your-org/gfless/workflows/Documentation/badge.svg)](https://github.com/your-org/gfless/actions/workflows/documentation.yml)
-[![codecov](https://codecov.io/gh/your-org/gfless/branch/main/graph/badge.svg)](https://codecov.io/gh/your-org/gfless)
-
 **Qt-free C++ and Node.js libraries for generating device fingerprints and blackbox data for authentication purposes.**
 
 This project provides modern, dependency-light alternatives to the original Qt-based GflessClient authentication system. We offer both a pure C++ library and Node.js bindings, maintaining full compatibility with the original authentication protocols while eliminating Qt dependencies.
