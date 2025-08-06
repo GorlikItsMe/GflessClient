@@ -1,0 +1,188 @@
+name: Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  # Node.js Tests
+  # test-nodejs:
+  #   name: Node.js Tests
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest, windows-latest, macos-latest]
+  #       node-version: [16, 18, 20]
+  #       exclude:
+  #         # Exclude Node.js 16 on macOS due to potential compatibility issues
+  #         - os: macos-latest
+  #           node-version: 16
+
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+
+  #   - name: Setup Node.js ${{ matrix.node-version }}
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: ${{ matrix.node-version }}
+  #       cache: 'npm'
+  #       cache-dependency-path: gfless-nodejs/package-lock.json
+
+  #   - name: Install dependencies (Node.js)
+  #     working-directory: gfless-nodejs
+  #     run: npm ci
+
+  #   - name: Build native modules
+  #     working-directory: gfless-nodejs
+  #     run: npm run build:native
+
+  #   - name: Run tests (Node.js)
+  #     working-directory: gfless-nodejs
+  #     run: npm test
+
+  #   - name: Upload coverage reports (Node.js)
+  #     if: matrix.os == 'ubuntu-latest' && matrix.node-version == 18
+  #     uses: codecov/codecov-action@v3
+  #     with:
+  #       file: gfless-nodejs/coverage/lcov.info
+  #       flags: nodejs
+  #       name: nodejs-coverage
+
+  # C++ Tests
+  test-cpp:
+    name: C++ Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup build environment (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake libssl-dev libcurl4-openssl-dev pkg-config
+
+    - name: Setup build environment (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install cmake openssl curl pkg-config
+
+    - name: Setup vcpkg cache (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: actions/cache@v4
+      with:
+        path: |
+          C:\vcpkg\installed
+          C:\vcpkg\downloads
+        key: ${{ runner.os }}-vcpkg-curl-openssl-nlohmann-json
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-
+
+    - name: Setup build environment (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        # Windows uses MSVC by default, no additional setup needed for basic testing
+        echo "Using MSVC compiler on Windows"
+        vcpkg install curl openssl nlohmann-json
+
+    - name: Configure CMake
+      working-directory: gfless-cpp/build
+      run: |
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+    - name: Build C++ library and tests
+      working-directory: gfless-cpp/build
+      run: |
+        cmake --build . --config Release
+
+    - name: Run C++ tests
+      working-directory: gfless-cpp/build
+      run: |
+        ctest -C Release
+
+  # Integration Tests (Node.js + C++ binding)
+  # test-integration:
+  #   name: Integration Tests
+  #   runs-on: ubuntu-latest
+  #   needs: [test-nodejs, test-cpp]
+    
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+
+  #   - name: Setup Node.js
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: 18
+  #       cache: 'npm'
+  #       cache-dependency-path: gfless-nodejs/package-lock.json
+
+  #   - name: Install dependencies
+  #     working-directory: gfless-nodejs
+  #     run: npm ci
+
+  #   - name: Build and test integration
+  #     working-directory: gfless-nodejs
+  #     run: |
+  #       npm run build
+  #       npm test -- --testNamePattern="integration"
+
+  # # Code Quality Checks
+  # lint-and-format:
+  #   name: Code Quality
+  #   runs-on: ubuntu-latest
+    
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+
+  #   - name: Setup Node.js
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: 18
+  #       cache: 'npm'
+  #       cache-dependency-path: gfless-nodejs/package-lock.json
+
+  #   - name: Install dependencies
+  #     working-directory: gfless-nodejs
+  #     run: npm ci
+
+  #   - name: Check TypeScript compilation
+  #     working-directory: gfless-nodejs
+  #     run: npm run build:ts
+
+  #   - name: Check for TypeScript errors
+  #     working-directory: gfless-nodejs
+  #     run: npx tsc --noEmit
+
+  # # Security Audit
+  # security-audit:
+  #   name: Security Audit
+  #   runs-on: ubuntu-latest
+    
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+
+  #   - name: Setup Node.js
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: 18
+  #       cache: 'npm'
+  #       cache-dependency-path: gfless-nodejs/package-lock.json
+
+  #   - name: Install dependencies
+  #     working-directory: gfless-nodejs
+  #     run: npm ci
+
+  #   - name: Run security audit
+  #     working-directory: gfless-nodejs
+  #     run: npm audit --audit-level=moderate 
