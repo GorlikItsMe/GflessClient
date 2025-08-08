@@ -47,3 +47,70 @@ You'll need to extract a valid blackbox from the request to auth/iovation follow
 
 Big thanks and full credits to [morsisko](https://github.com/morsisko) and [stdLemon](https://github.com/stdLemon) for all the reverse engineering needed to make this project possible.<br>
 Repositories used for this project: [Nostale-Auth](https://github.com/morsisko/NosTale-Auth), [Nostale-Gfless](https://github.com/morsisko/NosTale-Gfless) and [nostale-auth](https://github.com/stdLemon/nostale-auth)
+
+## Node.js binding (headless API)
+
+This repo now includes a Node.js addon that exposes the core logic from `Launcher/src/auth` without the GUI. It focuses on `NostaleAuth` to authenticate, list accounts, and obtain tokens.
+
+- Location: `node-addon/`
+- Exposed methods:
+  - `createAuth(options)` → instance
+    - options: `{ identityPath, installationId, proxy: { enabled, host, port, username, password } }`
+  - `auth.authenticate(email, password)` → `{ ok, captcha, gfChallengeId, wrongCredentials }`
+  - `auth.getAccounts()` → `{ [id]: displayName }`
+  - `auth.getToken(accountId)` → `string`
+
+### Requirements
+
+- Qt 6 (Core, Network) in headless mode
+- CMake ≥ 3.18, Ninja or Make
+- Node.js ≥ 18, `node-gyp` toolchain
+- A C++17 compiler
+
+On Ubuntu/Debian:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build python3 g++ curl git pkg-config \
+  qtbase5-dev qtdeclarative5-dev qt6-base-dev qt6-base-dev-tools libqt6network6-dev
+# Node.js (use your preferred method)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+npm install -g node-gyp
+```
+
+### Build
+
+```bash
+cd node-addon
+npm install
+npm run build
+```
+
+### Test
+
+```bash
+npm test
+```
+
+### Usage example
+
+```javascript
+const { createAuth } = require('./build/Release/gfless.node');
+
+const auth = createAuth({
+  identityPath: '/path/to/identity.json',
+  installationId: 'YOUR-INSTALLATION-ID',
+  proxy: { enabled: false }
+});
+
+(async () => {
+  const res = await auth.authenticate('email@example.com', 'password');
+  if (res.ok) {
+    const accounts = await auth.getAccounts();
+    const first = Object.keys(accounts)[0];
+    const token = await auth.getToken(first);
+    console.log('Token:', token);
+  }
+})();
+```

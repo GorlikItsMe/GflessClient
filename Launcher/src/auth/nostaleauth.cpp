@@ -1,7 +1,7 @@
 #include "nostaleauth.h"
 #include "blackbox.h"
 #include <QNetworkProxy>
-#include <QtZlib/zlib.h>
+#include <zlib.h>
 
 NostaleAuth::NostaleAuth(const QString &identityPath, const QString& installationID, bool proxy, const QString &proxyHost, const QString &proxyPort, const QString &proxyUser, const QString &proxyPasswd, QObject *parent)
     : QObject(parent)
@@ -35,11 +35,15 @@ NostaleAuth::NostaleAuth(const QString &identityPath, const QString& installatio
     }
 
 
+#ifdef GFLESS_NODE_BINDING
+    initInstallationId();
+#else
     initGfVersion();
     initCert();
     initInstallationId();
     initAllCerts();
     initPrivateKey();
+#endif
 }
 
 // Thanks ChatGPT
@@ -463,22 +467,21 @@ void NostaleAuth::initInstallationId()
         return;
     }
 
+#ifdef _WIN32
     QSettings s("HKEY_CURRENT_USER\\SOFTWARE\\Gameforge4d\\GameforgeClient\\MainApp", QSettings::NativeFormat);
-
     this->installationId = s.value("InstallationId").toString();
-
     if (installationId.isEmpty())
     {
         qDebug() << "Couldn't find InstallationId";
         qDebug() << "Trying to find it from another registry";
-
         QSettings sett("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Gameforge4d\\GameforgeClient\\MainApp", QSettings::NativeFormat);
-
         this->installationId = sett.value("InstallationId").toString();
-
         if (installationId.isEmpty())
             qDebug() << "Couldn't find InstallationId";
     }
+#else
+    qWarning() << "InstallationId not provided and registry lookup is only available on Windows";
+#endif
 }
 
 void NostaleAuth::initCert()
@@ -528,6 +531,10 @@ void NostaleAuth::initPrivateKey()
 
 void NostaleAuth::initGfVersion()
 {
+#ifdef GFLESS_NODE_BINDING
+    this->chromeVersion = "C";
+    this->gameforgeVersion = "";
+#else
     QJsonObject jsonResponse;
     QNetworkRequest request(QUrl("http://dl.tnt.gameforge.com/tnt/final-ms3/clientversioninfo.json"));
     QNetworkReply* reply = nullptr;
@@ -544,6 +551,7 @@ void NostaleAuth::initGfVersion()
 
     this->chromeVersion = "C" + jsonResponse["version"].toString();
     this->gameforgeVersion = jsonResponse["minimumVersionForDelayedUpdate"].toString();
+#endif
 }
 
 void NostaleAuth::setToken(const QString &newToken)

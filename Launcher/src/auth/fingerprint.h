@@ -1,7 +1,9 @@
 #ifndef FINGERPRINT_H
 #define FINGERPRINT_H
 
+#ifdef _WIN32
 #include <Windows.h>
+#endif
 #include <QRandomGenerator>
 #include <QString>
 #include <QDateTime>

@@ -96,6 +96,10 @@ QByteArray Fingerprint::randomString(int size) const
 
 QString Fingerprint::getServerDate() const
 {
+#ifdef GFLESS_NODE_BINDING
+    // Avoid network access in headless tests; return current UTC time
+    return QDateTime::currentDateTimeUtc().toString(Qt::DateFormat::ISODateWithMs);
+#else
     QUrl url(SERVER_FILE_GAME1_FILE);
     SyncNetworAccesskManager network;
     QNetworkRequest request(url);
@@ -123,4 +127,5 @@ QString Fingerprint::getServerDate() const
     reply->deleteLater();
 
     return dateTime.toString(Qt::DateFormat::ISODateWithMs);
+#endif
 }

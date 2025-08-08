@@ -1,0 +1,5 @@
+/workspace/node-addon/build/CMakeFiles/gfless.dir
+/workspace/node-addon/build/CMakeFiles/edit_cache.dir
+/workspace/node-addon/build/CMakeFiles/rebuild_cache.dir
+/workspace/node-addon/build/CMakeFiles/gfless_autogen_timestamp_deps.dir
+/workspace/node-addon/build/CMakeFiles/gfless_autogen.dir

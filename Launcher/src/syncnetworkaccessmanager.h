@@ -1,7 +1,7 @@
 #ifndef SYNCNETWORKACCESSMANAGER_H
 #define SYNCNETWORKACCESSMANAGER_H
 
-#include <QApplication>
+#include <QCoreApplication>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QDebug>

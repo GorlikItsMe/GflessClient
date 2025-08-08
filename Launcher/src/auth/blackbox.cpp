@@ -119,7 +119,7 @@ QJsonObject EncryptedBlackBox::createRequest(const QString &gsid, const QString 
     QJsonObject request;
     QJsonArray featuresArray;
 
-    featuresArray.push_back(QRandomGenerator64::global()->bounded(1, MAXINT32));
+    featuresArray.push_back(QRandomGenerator64::global()->bounded(1, INT32_MAX));
     request["features"] = featuresArray;
     request["installation"] = installationId;
     request["session"] = gsid.left(gsid.lastIndexOf("-"));

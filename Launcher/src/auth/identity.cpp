@@ -31,18 +31,28 @@ void Identity::setRequest(const QJsonValue &request)
 
 void Identity::initFingerprint(const QString &proxyIp, const QString &proxyPort, const QString &proxyUsername, const QString &proxyPassword, const bool useProxy)
 {
-    QFile file(filename);
+    if (!filename.isEmpty()) {
+        QFile file(filename);
 
-    if (file.open(QFile::ReadOnly))
-    {
-        QByteArray content = file.readAll();
-        fingerprint = Fingerprint(QJsonDocument::fromJson(content).object(), proxyIp, proxyPort, proxyUsername, proxyPassword, useProxy);
-        file.close();
+        if (file.open(QFile::ReadOnly))
+        {
+            QByteArray content = file.readAll();
+            fingerprint = Fingerprint(QJsonDocument::fromJson(content).object(), proxyIp, proxyPort, proxyUsername, proxyPassword, useProxy);
+            file.close();
+            return;
+        }
     }
+
+    // Initialize empty fingerprint if file not provided or not readable
+    fingerprint = Fingerprint(QJsonObject{}, proxyIp, proxyPort, proxyUsername, proxyPassword, useProxy);
 }
 
 void Identity::save() const
 {
+    if (filename.isEmpty()) {
+        return;
+    }
+
     QFile file(filename);
 
     if (file.open(QFile::WriteOnly))

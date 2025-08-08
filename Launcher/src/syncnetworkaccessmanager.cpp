@@ -1,5 +1,5 @@
 #include "syncnetworkaccessmanager.h"
-#include <QMessageBox>
+#include <QDebug>
 
 SyncNetworAccesskManager::SyncNetworAccesskManager(QObject *parent) : QNetworkAccessManager(parent)
 {
@@ -14,11 +14,11 @@ QNetworkReply* SyncNetworAccesskManager::post(const QNetworkRequest &request, co
     {
         qDebug() << "Error code:" << reply->error();
         QString err = reply->errorString();
-        QMessageBox::critical(nullptr, "Error", err);
+        qWarning() << "Network POST error:" << err;
     });
 
     while (!reply->isFinished())
-        QApplication::processEvents();
+        QCoreApplication::processEvents();
 
     return reply;
 }
@@ -31,11 +31,11 @@ QNetworkReply* SyncNetworAccesskManager::get(const QNetworkRequest &request)
     {
         qDebug() << "Error code:" << reply->error();
         QString err = reply->errorString();
-        QMessageBox::critical(nullptr, "Error", err);
+        qWarning() << "Network GET error:" << err;
     });
 
     while (!reply->isFinished())
-        QApplication::processEvents();
+        QCoreApplication::processEvents();
 
     return reply;
 }
@@ -48,11 +48,11 @@ QNetworkReply *SyncNetworAccesskManager::sendCustomRequest(const QNetworkRequest
     {
         qDebug() << "Error code:" << reply->error();
         QString err = reply->errorString();
-        QMessageBox::critical(nullptr, "Error", err);
+        qWarning() << "Network CUSTOM error:" << err;
     });
 
     while (!reply->isFinished())
-        QApplication::processEvents();
+        QCoreApplication::processEvents();
 
     return reply;
 }
